@@ -269,3 +269,27 @@ button,input,.step,.serie{touch-action:manipulation}
 .cardiocard .cuenta{text-align:center}
 
 .btn.cortar{background:var(--card);color:var(--txt);border:1.5px solid var(--line);margin-top:10px}
+
+/* Ciclo: preguntas, historial de reglas */
+.pregunta{border:2px solid var(--acc)}
+.pregunta h2{margin:4px 0 10px}
+.pregunta .difs .btn{margin-top:0}
+.opciones{display:flex;flex-direction:column;gap:8px;margin-top:10px}.opciones .btn{margin-top:0}
+.regrow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 0}
+.regrow span{font-size:14px;color:var(--txt)}.regrow small{display:block;color:var(--txt2);font-size:12px}
+.durst{display:flex;align-items:center;background:var(--soft);border-radius:12px;height:40px}
+.durst button{border:0;background:transparent;width:34px;height:100%;font-size:20px;color:var(--txt2);cursor:pointer}
+.durst b{min-width:58px;text-align:center;font-size:14px}
+.dias{width:72px;border:1.5px solid var(--line);background:var(--soft);border-radius:12px;padding:9px 8px;min-height:42px;text-align:center}
+.fases5 .seg{font-size:12px;padding:10px 2px}
+.dia u{position:absolute;left:8px;right:8px;bottom:4px;height:3px;border-radius:2px;background:var(--fc);text-decoration:none}
+.dia em{position:absolute;top:-6px;left:-3px;font-style:normal;font-size:12px}
+.sinmb{margin:0}
+.extra .fila{margin:0}
+.campo{width:120px;border:1.5px solid var(--line);background:var(--soft);border-radius:12px;padding:9px 10px;min-height:42px;text-align:right}
+.hcont .fila input[type=date]{flex:0 0 auto}
+.hcont .bigfig{max-width:260px;margin:0 auto 8px}
+.simbar{position:sticky;top:0;z-index:40;display:flex;gap:6px;align-items:center;background:#26232E;color:#fff;padding:calc(var(--sat) + 6px) 10px 6px;font-size:13px}
+.simbar input{flex:1;min-width:0;border:0;border-radius:8px;padding:6px;font-size:14px}
+.simbar .mini{min-height:32px;padding:0 8px;font-size:13px;background:rgba(255,255,255,.15);color:#fff}
+.extra .mini{white-space:nowrap}

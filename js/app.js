@@ -5,6 +5,7 @@ import { animar, svgEstatico, pararAnimaciones } from "./figuras.js";
 const $app = document.getElementById("app");
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const fase = (n) => FASES[n - 1];
+const CORTO = { 1: "Mens.", 2: "Fol.", 3: "Ovul.", 4: "Lút." };
 const DIF = { facil: "Fácil", normal: "Normal", dificil: "Difícil" };
 const mmss = (s) => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : 0; };
@@ -41,7 +42,7 @@ function cortoPeso(id, v) {
 }
 const serieTxt = (id, x) => { const p = cortoPeso(id, x.kg); return p ? `${p}×${x.reps}` : `${x.reps} reps`; };
 const ETQ_PESO = { mancuerna: "kg", discos: "+ kg discos", placas: "placa" };
-const VERSION_APP = "13 · 18 oct";
+const VERSION_APP = "14 · 19 oct";
 const SERIE_SEG = 40; // tiempo estimado de trabajo por serie
 // Alternos (1 rep = los dos brazos) y unilaterales (todas las reps con una pierna y luego la otra) duran el doble.
 const segSerie = (e) => SERIE_SEG * (e && EJ[e.id]?.doble ? 2 : 1);
@@ -120,9 +121,13 @@ function render() {
   else if (r === "ajustes") html = vAjustes();
   else html = vHoy();
   const tabs = r === "entreno" ? "" : barra(r === "ej" ? "plan" : r === "ciclo" ? "progreso" : r);
-  $app.innerHTML = `<main class="vista ${r === "ciclo" ? "rciclo" : r}">${html}</main>${tabs}`;
+  $app.innerHTML = `${window.PRUEBA ? barraPrueba() : ""}<main class="vista ${r === "ciclo" ? "rciclo" : r}">${html}</main>${tabs}`;
   window.scrollTo(0, 0);
   montar(r, a, b);
+}
+// Barra de la versión de prueba: permite simular cualquier fecha
+function barraPrueba() {
+  return `<div class="simbar"><b>🧪 Prueba</b><input type="date" id="simHoy" value="${db.hoy()}"><button class="mini" data-act="simDia" data-d="1">+1 día</button><button class="mini" data-act="simReset">Reiniciar</button></div>`;
 }
 function barra(act) {
   const t = (k, h, n) => `<a href="#/${h}" class="tab ${act === k ? "on" : ""}">${ico(k === "progreso" ? "prog" : k)}<span>${n}</span></a>`;
@@ -156,19 +161,39 @@ function estadoSesion(ses) {
   return "pend";
 }
 
+const fc = (x) => db.fechaCorta(x);
 function vHoy() {
   const f = db.hoy();
   const { ses, info, dia, semana, plan } = planDe(f);
   ponFase(semana);
   const F = fase(semana);
   const est = estadoSesion(ses);
+  const pred = db.prediccion();
+
+  // Avisos de la regla
   let aviso = "";
-  if (info.sinRegla) aviso = `<div class="aviso">Aún no has registrado tu regla. Mientras tanto la app usa la <b>Semana 1</b>. Pulsa el botón de abajo el primer día de la regla.</div>`;
-  else if (info.pasada) aviso = `<div class="aviso">Han pasado más de 4 semanas desde tu última regla (${db.fechaCorta(info.regla)}). Sigues en la <b>Semana 4</b> hasta que registres la nueva.</div>`;
+  if (info.sinRegla) aviso = `<div class="aviso">Aún no hay ninguna regla registrada. Pulsa el botón de abajo el primer día de la regla.</div>`;
+  else if (pred && semana === 4 && f >= pred.desde && f > db.sumaDias(pred.hasta, 2)) aviso = `<div class="aviso">Tu regla se está retrasando: estaba prevista hacia el <b>${fc(pred.fecha)}</b> (${fc(pred.desde)}–${fc(pred.hasta)}). Sigues en fase lútea hasta que la registres.</div>`;
+  else if (pred && semana === 4 && f >= db.sumaDias(pred.desde, -3)) aviso = `<div class="aviso">🩸 <b>Probablemente te baje pronto.</b> Previsión: ${fc(pred.fecha)} (entre el ${fc(pred.desde)} y el ${fc(pred.hasta)}).</div>`;
+
+  // Preguntas del sangrado
+  let preg = "";
+  const pS = db.preguntaSangrado(f), pF = db.preguntaFase(f);
+  if (pS) {
+    preg = `<section class="card pregunta"><div class="etq">Día ${db.diasEntre(pS.inicio, f) + 1} desde que te bajó</div><h2>¿Sigues sangrando?</h2>
+      <div class="difs"><button class="btn" data-act="sangra" data-v="si">Sí, sigo</button><button class="btn sec" data-act="sangra" data-v="no">No</button></div>
+      <p class="nota">Si contestas que no, el último día de regla queda guardado como ${db.diaISO(db.parse(f)) === 1 ? "el domingo" : "ayer"}.</p></section>`;
+  } else if (pF) {
+    const r = pF.recomendada, op = (n, t) => `<button class="btn ${n === r ? "" : "sec"}" data-act="decideFase" data-n="${n}" data-m="${pF.M1}">${t}${n === r ? " · recomendado" : ""}</button>`;
+    preg = `<section class="card pregunta"><div class="etq">Hoy es el día ${db.diasEntre(pF.R.inicio, f) + 1} del ciclo</div><h2>Esta semana, ¿qué fase hacemos?</h2>
+      <p class="suave">Sigues sangrando. ${r === 2 ? "Como ya llevas 6 días o más, te recomiendo pasar a folicular." : "Como es el principio de la regla, te recomiendo mantener la menstrual toda la semana."}</p>
+      <div class="opciones">${op(1, "Mantener menstrual")}${op(2, "Pasar a folicular")}</div>
+      <p class="nota">Si no eliges, se aplica la recomendada. La fase no cambia hasta el lunes.</p></section>`;
+  }
 
   let tarjeta;
   if (plan.tipo === "descanso") {
-    tarjeta = `<section class="card hoycard descanso"><div class="etq">${NOMBRE_DIA[dia]}</div><h2>Día de descanso</h2>
+    tarjeta = `<section class="card hoycard reposo"><div class="etq">${NOMBRE_DIA[dia]}</div><h2>Día de descanso</h2>
       <p class="suave">Si quieres recuperar un entreno de esta semana, elígelo aquí:</p>
       <div class="chips">${[1, 2, 3, 4, 5].map((d) => `<button class="chip" data-act="cambiaDia" data-d="${d}">${NOMBRE_DIA[d]}</button>`).join("")}</div></section>`;
   } else {
@@ -179,42 +204,69 @@ function vHoy() {
       <div class="etq">${NOMBRE_DIA[dia]}${ses && ses.dia !== db.diaISO(db.parse(f)) ? " (recuperado)" : ""}</div>
       <h2>${esc(plan.titulo)}</h2>
       <p class="suave">${esc(plan.tipo === "cardio" ? plan.subtitulo : plan.vol.intensidad)}</p>
-      <div class="reparto"><div><b>≈ ${Math.round(estimar(plan) / 60)} min</b><span>duración</span></div><div><b>${plan.tipo === "cardio" ? plan.bloques.length : plan.ejercicios.length}</b><span>${plan.tipo === "cardio" ? "bloques" : "ejercicios"}</span></div><div><b>${plan.tipo === "cardio" ? "Cinta" : plan.vol.descanso + " s"}</b><span>${plan.tipo === "cardio" ? "máquina" : "descanso"}</span></div></div>
+      <div class="reparto"><div><b>≈ ${Math.round(estimar(plan) / 60)} min</b><span>duración</span></div><div><b>${plan.tipo === "cardio" ? plan.bloques.length : plan.ejercicios.length}</b><span>${plan.tipo === "cardio" ? "fases" : "ejercicios"}</span></div><div><b>${plan.tipo === "cardio" ? "Cinta" : plan.vol.descanso + " s"}</b><span>${plan.tipo === "cardio" ? "máquina" : "descanso"}</span></div></div>
       ${plan.intro ? `<p class="intro">${esc(plan.intro)}</p>` : ""}
       ${boton}
       ${est === "pend" ? `<details class="cambiar"><summary>Hacer otro entreno hoy</summary><div class="chips">${[1, 2, 3, 4, 5].filter((d) => d !== dia).map((d) => `<button class="chip" data-act="cambiaDia" data-d="${d}">${NOMBRE_DIA[d]}</button>`).join("")}</div></details>` : ""}
     </section>`;
   }
 
-  // Tira de la semana
+  // Actividad extra: caminata al aire libre
+  const hoyEx = db.extras().filter((x) => x.fecha === f);
+  const extra = `<section class="card extra"><div class="fila"><div><h3 class="sinmb">Actividad extra</h3><p class="suave chico">Caminata al aire libre, cualquier día</p></div><button class="mini prim" data-act="caminata">🌳 Añadir</button></div>
+    ${hoyEx.length ? `<ul class="lista compacta">${hoyEx.map((x) => `<li class="sesli"><span>🌳 ${txtCaminata(x)}</span><button class="papelera" data-act="borrarExtra" data-id="${x.id}" aria-label="Eliminar">🗑</button></li>`).join("")}</ul>` : ""}</section>`;
+
+  // Tira de la semana (cada día con su fase)
   const lunes = info.lunes;
   const tira = [1, 2, 3, 4, 5, 6, 7].map((d) => {
     const fe = db.sumaDias(lunes, d - 1), s = db.sesion(fe), e = estadoSesion(s);
-    const p = sesionDe(s?.dia || d, s?.semana || semana);
+    const fd = s?.semana || db.infoFase(fe).fase;
+    const p = sesionDe(s?.dia || d, fd);
     const ic = p.tipo === "descanso" ? "·" : p.tipo === "cardio" ? "♥" : { A: "Pec", B: "Esp", C: "Pie" }[p.bloque];
     const link = p.tipo !== "descanso" || s ? `href="#/entreno/${fe}"` : "";
-    return `<a ${link} class="dia ${fe === f ? "hoy" : ""} ${e}"><span>${NOMBRE_DIA[d].slice(0, 1)}</span><b>${ic}</b><i>${e === "hecho" ? "✓" : ""}</i></a>`;
+    const ex = db.extras().some((x) => x.fecha === fe);
+    return `<a ${link} class="dia ${fe === f ? "hoy" : ""} ${e}" style="--fc:${fase(fd).color}"><span>${NOMBRE_DIA[d].slice(0, 1)}</span><b>${ic}</b><i>${e === "hecho" ? "✓" : ""}</i>${ex ? `<em>🌳</em>` : ""}<u></u></a>`;
   }).join("");
 
-  const ciclo = info.diaCiclo ? `Día ${info.diaCiclo} del ciclo` : "Sin regla registrada";
   return `<header class="cab">
-      <div><div class="fecha">${NOMBRE_DIA[db.diaISO(new Date())]}, ${db.fechaCorta(f)}</div><h1>Semana ${semana}</h1></div>
-      <div class="fasebadge"><b>${F.nombre}</b><span>${F.lema}</span></div>
+      <div><div class="fecha">${NOMBRE_DIA[db.diaISO(db.parse(f))]}, ${fc(f)}</div><h1>${F.nombre}</h1></div>
+      <div class="fasebadge"><b>${info.diaCiclo ? "Día " + info.diaCiclo : "—"}</b><span>del ciclo</span></div>
     </header>
-    <div class="ciclo"><span>${ciclo}${info.manual ? " · semana fijada a mano" : ""}</span>
+    <div class="ciclo"><span>${pred ? `Próxima regla: ~${fc(pred.fecha)} (${fc(pred.desde)}–${fc(pred.hasta)})` : F.lema}${info.manual ? " · fase fijada a mano" : ""}</span>
       <div class="ruleta">${FASES.map((x) => `<i style="background:${x.color}" class="${x.n === semana ? "on" : ""}"></i>`).join("")}</div></div>
+    ${preg}
     ${aviso}
     ${tarjeta}
     <section class="card"><h3>Esta semana</h3><div class="tira">${tira}</div></section>
+    ${extra}
     <button class="btn regla" data-act="regla">🩸 Hoy me ha bajado la regla</button>
-    <p class="nota">Si te bajó otro día, regístralo en Ajustes.</p>`;
+    <p class="nota">Si te bajó otro día, regístralo en Ajustes.</p>
+    <div id="hoja" class="hoja" hidden></div>`;
+}
+// Caminata al aire libre
+const ritmo = (km, min) => { if (!(km > 0 && min > 0)) return ""; const p = min / km, m = Math.floor(p), sg = Math.round((p - m) * 60); return `${m}:${String(sg === 60 ? 0 : sg).padStart(2, "0")} min/km`; };
+const velo = (km, min) => (km > 0 && min > 0 ? fmtKg(Math.round((km / (min / 60)) * 10) / 10) + " km/h" : "");
+const txtCaminata = (x) => `${fmtKg(x.km)} km · ${x.min} min · ${velo(x.km, x.min)} · ${ritmo(x.km, x.min)}`;
+function abrirCaminata() {
+  const h = document.getElementById("hoja"); if (!h) return;
+  h.innerHTML = `<div class="hcont"><div class="hcab"><b>🌳 Caminata al aire libre</b><button class="mini" data-act="hojaCerrar">Cerrar</button></div>
+    <div class="bigfig" data-fig2="caminata"></div>
+    <label class="fila">Día<input type="date" id="cwF" value="${db.hoy()}" max="${db.hoy()}"></label>
+    <label class="fila">Kilómetros<input id="cwKm" inputmode="decimal" placeholder="Ej. 5,2" class="campo"></label>
+    <label class="fila">Tiempo (minutos)<input id="cwMin" inputmode="numeric" placeholder="Ej. 50" class="campo"></label>
+    <p class="nota centro" id="cwCalc">Introduce km y minutos.</p>
+    <button class="btn" data-act="guardaCaminata">Guardar caminata</button></div>`;
+  h.hidden = false;
+  animar(h.querySelector("[data-fig2]"), "caminata");
+  const calc = () => { const km = num(document.getElementById("cwKm").value), mn = num(document.getElementById("cwMin").value); document.getElementById("cwCalc").textContent = km > 0 && mn > 0 ? `${velo(km, mn)} · ${ritmo(km, mn)}` : "Introduce km y minutos."; };
+  h.querySelectorAll(".campo").forEach((i) => i.addEventListener("input", calc));
 }
 
 // ---------- PLAN ----------
 function vPlan(sem) {
   sem = Math.min(4, Math.max(1, sem || 1));
   ponFase(sem);
-  const seg = FASES.map((x) => `<a href="#/plan/${x.n}" class="seg ${x.n === sem ? "on" : ""}" style="--c:${x.color}">S${x.n}</a>`).join("");
+  const seg = FASES.map((x) => `<a href="#/plan/${x.n}" class="seg ${x.n === sem ? "on" : ""}" style="--c:${x.color}">${CORTO[x.n]}</a>`).join("");
   const dias = [1, 2, 3, 4, 5].map((d) => {
     const p = sesionDe(d, sem);
     let cuerpo;
@@ -224,10 +276,10 @@ function vPlan(sem) {
     } else {
       cuerpo = `${tablaCardio(p.bloques)}<p class="nota">En el bloque principal eliges tú la velocidad y la inclinación mientras entrenas.</p>`;
     }
-    return `<details class="card dplan" ${d === db.diaISO(new Date()) ? "open" : ""}><summary><span class="etq">${NOMBRE_DIA[d]}</span><b>${esc(p.titulo)}</b><em>≈ ${Math.round(estimar(p) / 60)} min</em></summary>${cuerpo}</details>`;
+    return `<details class="card dplan" ${d === db.diaISO(db.parse(db.hoy())) ? "open" : ""}><summary><span class="etq">${NOMBRE_DIA[d]}</span><b>${esc(p.titulo)}</b><em>≈ ${Math.round(estimar(p) / 60)} min</em></summary>${cuerpo}</details>`;
   }).join("");
   const F = fase(sem);
-  return `<header class="cab"><div><div class="fecha">Plan de 4 semanas</div><h1>Semana ${sem}</h1></div><div class="fasebadge"><b>${F.nombre}</b><span>${F.lema}</span></div></header>
+  return `<header class="cab"><div><div class="fecha">Plan por fases</div><h1>${F.nombre.replace("Fase ", "")}</h1></div><div class="fasebadge"><b>${F.nombre}</b><span>${F.lema}</span></div></header>
     <div class="segs">${seg}</div>${dias}`;
 }
 function tablaCardio(bl) {
@@ -241,9 +293,9 @@ function vEjercicio(id, sem) {
   if (!e) return `<p>Ejercicio no encontrado.</p>`;
   if (sem) ponFase(sem);
   const donde = [];
-  for (const [k, bl] of Object.entries(BLOQUES)) for (const [s, w] of Object.entries(bl.semanas)) if (w.ej.some((x) => x.id === id)) donde.push(`S${s}`);
+  for (const [k, bl] of Object.entries(BLOQUES)) for (const [s, w] of Object.entries(bl.semanas)) if (w.ej.some((x) => x.id === id)) donde.push(CORTO[s]);
   const h = db.historial(id);
-  const filas = h.length ? h.map((r) => `<tr><td>${db.fechaCorta(r.fecha)}<small>S${r.semana}</small></td><td>${r.series.map((x) => serieTxt(id, x)).join(" · ") || "—"}</td><td>${r.dif ? `<span class="dif ${r.dif}">${DIF[r.dif]}</span>` : ""}</td></tr>`).join("")
+  const filas = h.length ? h.map((r) => `<tr><td>${db.fechaCorta(r.fecha)}<small>${CORTO[r.semana]}</small></td><td>${r.series.map((x) => serieTxt(id, x)).join(" · ") || "—"}</td><td>${r.dif ? `<span class="dif ${r.dif}">${DIF[r.dif]}</span>` : ""}</td></tr>`).join("")
     : `<tr><td colspan="3" class="suave">Todavía no hay registros.</td></tr>`;
   return `<a class="volver" href="javascript:history.back()">‹ Volver</a>
     <section class="card"><div class="bigfig" data-fig="${id}"></div><h2>${esc(e.nombre)}</h2>
@@ -272,18 +324,25 @@ function vProgreso() {
     const p = sesionDe(s.dia, s.semana);
     const dur = s.fin && s.inicio ? Math.round((s.fin - s.inicio) / 60000) + " min" : s.cardio?.hecho ? (s.cardio.minutos ?? Math.round(estimar(p) / 60)) + " min" : "en curso";
     const dif = s.cardio?.dif;
-    return `<li class="sesli"><a href="#/entreno/${s.fecha}" class="sesrow"><i style="background:${fase(s.semana).color}"></i><div><b>${esc(p.titulo)}</b><span>${NOMBRE_DIA[db.diaISO(db.parse(s.fecha))]} ${db.fechaCorta(s.fecha)} · Semana ${s.semana} · ${dur}</span>${p.tipo === "cardio" && s.cardio?.tramos?.length ? `<span class="tramotxt">${esc(textoCardio(s.cardio, p))}</span>` : ""}</div>${dif ? `<span class="dif ${dif}">${DIF[dif]}</span>` : ""}</a><button class="papelera" data-act="borrarSes" data-f="${s.fecha}" aria-label="Eliminar este entreno">🗑</button></li>`;
+    return `<li class="sesli"><a href="#/entreno/${s.fecha}" class="sesrow"><i style="background:${fase(s.semana).color}"></i><div><b>${esc(p.titulo)}</b><span>${NOMBRE_DIA[db.diaISO(db.parse(s.fecha))]} ${db.fechaCorta(s.fecha)} · ${fase(s.semana).nombre} · ${dur}</span>${p.tipo === "cardio" && s.cardio?.tramos?.length ? `<span class="tramotxt">${esc(textoCardio(s.cardio, p))}</span>` : ""}</div>${dif ? `<span class="dif ${dif}">${DIF[dif]}</span>` : ""}</a><button class="papelera" data-act="borrarSes" data-f="${s.fecha}" aria-label="Eliminar este entreno">🗑</button></li>`;
   }).join("");
   ponFase(db.infoSemana().semana);
+  const caminatas = db.extras().map((x) => `<li class="sesli"><div class="sesrow"><i style="background:${fase(x.fase || 1).color}"></i><div><b>🌳 Caminata al aire libre</b><span>${NOMBRE_DIA[db.diaISO(db.parse(x.fecha))]} ${fc(x.fecha)} · ${fase(x.fase || 1).nombre}</span><span class="tramotxt">${txtCaminata(x)}</span></div></div><button class="papelera" data-act="borrarExtra" data-id="${x.id}" aria-label="Eliminar">🗑</button></li>`);
   const cs = ciclos().reverse().map((c) => `<li><a href="#/ciclo/${c.regla}" class="sesrow"><i style="background:${FASES[0].color}"></i><div><b>Ciclo del ${db.fechaCorta(c.regla)}</b><span>${c.siguiente ? "hasta el " + db.fechaCorta(db.sumaDias(c.siguiente, -1)) : "en curso"}</span></div><span class="flecha">›</span></a></li>`).join("");
   const todas = Object.values(db.st().sesiones).filter((s) => estadoSesion(s) === "hecho");
   return `<header class="cab"><div><div class="fecha">Tu evolución</div><h1>Progreso</h1></div></header>
     <section class="card"><h3>Dificultad por fase</h3>${barrasDif(cuentaDif(todas))}<p class="nota">Todas tus valoraciones (cada ejercicio y cada cardio) agrupadas por semana del ciclo.</p></section>
     ${cs ? `<section class="card"><h3>Resúmenes de ciclo</h3><ul class="lista">${cs}</ul></section>` : ""}
     <section class="card"><h3>Ejercicios</h3><ul class="lista">${lista}</ul></section>
-    ${hist ? `<section class="card"><h3>Entrenos realizados</h3><ul class="lista">${hist}</ul></section>` : ""}`;
+    ${hist || caminatas.length ? `<section class="card"><h3>Entrenos realizados</h3><ul class="lista">${mezclaHist(ses.slice(0, 30), hist, caminatas)}</ul></section>` : ""}`;
 }
 
+// Mezcla entrenos y caminatas por fecha (más reciente primero)
+function mezclaHist(ses, histHtml, camHtml) {
+  const filas = histHtml ? histHtml.split(/(?=<li class="sesli">)/) : [];
+  const items = ses.map((s, i) => ({ f: s.fecha, h: filas[i] || "" })).concat(db.extras().map((x, i) => ({ f: x.fecha, h: camHtml[i] })));
+  return items.sort((a, b) => (a.f < b.f ? 1 : -1)).map((x) => x.h).join("");
+}
 // ---------- RESUMEN DE CICLO Y DIFICULTAD POR FASE ----------
 const PESO_DIF = { facil: 1, normal: 2, dificil: 3 };
 function difsDe(s) {
@@ -300,14 +359,14 @@ function barrasDif(c) {
   return `<div class="difbar">${FASES.map((F) => {
     const x = c[F.n], tot = x.facil + x.normal + x.dificil;
     const media = tot ? (x.facil + 2 * x.normal + 3 * x.dificil) / tot : 0;
-    return `<div class="dbrow"><span class="dbn"><i style="background:${F.color}"></i>S${F.n} <small>${F.nombre.replace("Fase ", "")}</small></span>
+    return `<div class="dbrow"><span class="dbn"><i style="background:${F.color}"></i>${F.nombre.replace("Fase ", "")}</span>
       <div class="dbb">${tot ? ["facil", "normal", "dificil"].map((k) => x[k] ? `<u class="${k}" style="flex:${x[k]}">${x[k]}</u>` : "").join("") : `<em>sin datos</em>`}</div>
       <span class="dbm">${tot ? (media < 1.6 ? "Fácil" : media < 2.4 ? "Normal" : "Difícil") : ""}</span></div>`;
   }).join("")}<div class="dbley"><span><u class="facil"></u>Fácil</span><span><u class="normal"></u>Normal</span><span><u class="dificil"></u>Difícil</span></div></div>`;
 }
 // Ciclos: de una regla a la siguiente (por semanas de lunes a domingo)
 function ciclos() {
-  const R = [...db.st().reglas].sort();
+  const R = db.reglas().map((r) => r.inicio);
   return R.map((r, i) => ({ ini: db.lunesDe(r), fin: R[i + 1] ? db.lunesDe(R[i + 1]) : null, regla: r, siguiente: R[i + 1] || null }));
 }
 function vCiclo(regla) {
@@ -338,7 +397,7 @@ function vCiclo(regla) {
   return `<a class="volver" href="#/progreso">‹ Progreso</a>
     <header class="cab"><div><div class="fecha">Ciclo del ${db.fechaCorta(c.regla)}${c.siguiente ? " al " + db.fechaCorta(db.sumaDias(c.siguiente, -1)) : " · en curso"}</div><h1>Resumen del ciclo</h1></div></header>
     <section class="card"><div class="reparto"><div><b>${ses.length}/${previstos}</b><span>entrenos</span></div><div><b>${recs.length}</b><span>récords</span></div><div><b>${semanas}</b><span>semanas</span></div></div>
-      <div class="semrow">${FASES.map((F, i) => `<div style="--c:${F.color}"><b>${porSemana[i]}</b><span>S${F.n}</span></div>`).join("")}</div></section>
+      <div class="semrow">${FASES.map((F, i) => `<div style="--c:${F.color}"><b>${porSemana[i]}</b><span>${CORTO[F.n]}</span></div>`).join("")}</div></section>
     ${mejor && mejor.F !== peor.F ? `<section class="card"><h3>Cómo te fue</h3><p>🌟 Mejor fase: <b style="color:${mejor.F.color}">${mejor.F.nombre}</b><br>🌧 Más dura: <b style="color:${peor.F.color}">${peor.F.nombre}</b></p></section>` : ""}
     <section class="card"><h3>Dificultad por fase</h3>${barrasDif(cd)}</section>
     <section class="card"><h3>Récords del ciclo</h3>${recs.length ? `<ul class="lista compacta">${recs.join("")}</ul>` : `<p class="suave">Este ciclo no has superado pesos anteriores${ids.length ? "" : " (todavía no hay datos)"}.</p>`}</section>
@@ -349,13 +408,23 @@ function vCiclo(regla) {
 function vAjustes() {
   const S = db.st(), info = db.infoSemana();
   ponFase(info.semana);
-  const reglas = [...S.reglas].sort().reverse().map((r) => `<li class="fila"><span>🩸 ${db.fechaCorta(r)} ${db.parse(r).getFullYear()}</span><button class="mini" data-act="borraRegla" data-f="${r}">Borrar</button></li>`).join("") || `<li class="suave">Ninguna todavía.</li>`;
+  const pred = db.prediccion();
+  const R = db.reglas();
+  const reglas = [...R].reverse().map((r, i, arr) => {
+    const dur = r.fin ? db.diasEntre(r.inicio, r.fin) + 1 : null, sig = arr[i - 1];
+    return `<li class="regrow"><span>🩸 ${fc(r.inicio)} ${db.parse(r.inicio).getFullYear()}${sig ? `<small>ciclo de ${db.diasEntre(r.inicio, sig.inicio)} días</small>` : `<small>ciclo actual</small>`}</span>
+      <div class="durst"><button data-act="durRegla" data-f="${r.inicio}" data-d="-1">−</button><b>${dur ? dur + " días" : "¿?"}</b><button data-act="durRegla" data-f="${r.inicio}" data-d="1">+</button></div>
+      <button class="papelera" data-act="borraRegla" data-f="${r.inicio}" aria-label="Borrar">🗑</button></li>`;
+  }).join("") || `<li class="suave">Ninguna todavía.</li>`;
+  const nombresF = ["Auto", "Menstrual", "Folicular", "Ovulatoria", "Lútea"];
   return `<header class="cab"><div><div class="fecha">Configuración</div><h1>Ajustes</h1></div></header>
-    <section class="card"><h3>Regla</h3><p class="suave">La semana (de lunes a domingo) en la que empieza la regla es la Semana 1. Cada lunes siguiente pasa a la semana 2, 3 y 4.</p>
-      <div class="fila"><input type="date" id="fRegla" value="${db.hoy()}" max="${db.hoy()}"><button class="mini prim" data-act="addRegla">Añadir</button></div>
+    <section class="card"><h3>Regla</h3>
+      ${pred ? `<div class="reparto"><div><b>${pred.ciclo} días</b><span>ciclo habitual</span></div><div><b>${db.duracionHabitual()} días</b><span>regla habitual</span></div><div><b>${fc(pred.fecha)}</b><span>próxima (aprox.)</span></div></div>` : ""}
+      <p class="suave chico" style="margin-top:10px">Añade una regla pasada con su primer día y cuántos días duró:</p>
+      <div class="fila"><input type="date" id="fRegla" value="${db.hoy()}" max="${db.hoy()}"><input id="dRegla" inputmode="numeric" placeholder="días" class="dias"><button class="mini prim" data-act="addRegla">Añadir</button></div>
       <ul class="lista compacta">${reglas}</ul></section>
-    <section class="card"><h3>Semana de esta semana</h3><p class="suave">Calculada: Semana ${info.auto}. Puedes fijarla a mano solo para esta semana.</p>
-      <div class="segs">${["Auto", 1, 2, 3, 4].map((n, i) => `<button class="seg ${(i === 0 && !info.manual) || (info.manual && info.semana === n) ? "on" : ""}" style="--c:${i ? fase(n).color : "var(--txt2)"}" data-act="manual" data-n="${i ? n : 0}">${i ? "S" + n : n}</button>`).join("")}</div></section>
+    <section class="card"><h3>Fase de esta semana</h3><p class="suave">${info.manual ? "Fijada a mano." : `Calculada: ${fase(info.semana).nombre}.`} Si la cambias, las semanas siguientes siguen en orden desde ahí (folicular → ovulatoria → lútea).</p>
+      <div class="segs fases5">${nombresF.map((t, n) => `<button class="seg ${(n === 0 && !info.manual) || (info.manual && info.semana === n) ? "on" : ""}" style="--c:${n ? fase(n).color : "var(--txt2)"}" data-act="manual" data-n="${n}">${t}</button>`).join("")}</div></section>
     <section class="card"><h3>Tiempos</h3>
       <label class="fila">Descanso al cambiar de ejercicio<select id="cambioEj">${[60, 90, 120, 150].map((s) => `<option value="${s}" ${S.ajustes.cambioEj === s ? "selected" : ""}>${s} s</option>`).join("")}</select></label>
       <label class="fila">Pitidos al terminar el descanso<input type="checkbox" id="sonido" class="sw" ${S.ajustes.sonido ? "checked" : ""}></label>
@@ -375,20 +444,20 @@ function vEntreno(fecha) {
   if (plan.tipo === "descanso") return `<a class="volver" href="#/hoy">‹ Hoy</a><section class="card"><h2>Día de descanso</h2></section>`;
   const s = ses || db.crearSesion(fecha, dia, semana);
   const empezado = s.inicio || s.fin || s.cardio?.inicio || Object.values(s.ej || {}).some((r) => r.series?.some((x) => x.hecho));
-  if (!s.energia && !empezado && plan.tipo !== "cardio") return vEnergia(s, plan);
+  if (!s.energia && !empezado) return vEnergia(s, plan);
   return plan.tipo === "cardio" ? vCardio(s, plan) : vFuerza(s, plan);
 }
 const ENERGIA = { alta: "⚡ Con energía", normal: "🙂 Normal", baja: "🪫 Con poca energía" };
 function vEnergia(s, p) {
-  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.titulo)}</b><span>Semana ${s.semana} · ${fase(s.semana).nombre}</span></div></header>
+  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.titulo)}</b><span>${fase(s.semana).nombre}</span></div></header>
     <section class="card energia"><h2>¿Cómo te encuentras hoy?</h2>
-      <p class="suave">${p.tipo === "cardio" ? "Te diré si conviene ir a la parte alta o baja de los rangos de velocidad e inclinación." : "Si hoy tienes poca energía, bajaré un escalón los pesos propuestos."}</p>
+      <p class="suave">${p.tipo === "cardio" ? "Te daré una pista para elegir la velocidad y la inclinación del bloque principal." : "Si hoy tienes poca energía, bajaré un escalón los pesos propuestos."}</p>
       <div class="energias">${Object.entries(ENERGIA).map(([k, t]) => `<button class="en ${k}" data-act="energia" data-v="${k}">${t}</button>`).join("")}</div>
     </section>`;
 }
 function consejoEnergia(s, tipo) {
-  if (s.energia === "baja") return tipo === "cardio" ? "Hoy con poca energía: usa la parte baja de los rangos de velocidad e inclinación." : "Hoy con poca energía: los pesos propuestos bajan un escalón. Escucha a tu cuerpo.";
-  if (s.energia === "alta") return tipo === "cardio" ? "Hoy con energía: puedes ir a la parte alta de los rangos." : "Hoy con energía: apura la parte alta del rango de repeticiones.";
+  if (s.energia === "baja") return tipo === "cardio" ? "Hoy con poca energía: elige velocidades e inclinaciones suaves en el bloque principal." : "Hoy con poca energía: los pesos propuestos bajan un escalón. Escucha a tu cuerpo.";
+  if (s.energia === "alta") return tipo === "cardio" ? "Hoy con energía: puedes apretar un poco más en el bloque principal." : "Hoy con energía: apura la parte alta del rango de repeticiones.";
   return "";
 }
 
@@ -447,7 +516,7 @@ function vFuerza(s, p) {
   const enTxt = consejoEnergia(s, "fuerza");
   const ultimo = i === n - 1;
   const restante = estimarRestante(s, p);
-  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.subtitulo)}</b><span>Semana ${s.semana} · ${fase(s.semana).nombre}${s.energia ? " · " + ENERGIA[s.energia].split(" ")[0] : ""}</span></div><div class="reloj"><b data-reloj>${s.inicio ? mmss((Date.now() - s.inicio) / 1000) : "0:00"}</b><span>≈ ${Math.round(restante / 60)} min rest.</span></div></header>
+  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.subtitulo)}</b><span>${fase(s.semana).nombre}${s.energia ? " · " + ENERGIA[s.energia].split(" ")[0] : ""}</span></div><div class="reloj"><b data-reloj>${s.inicio ? mmss((Date.now() - s.inicio) / 1000) : "0:00"}</b><span>≈ ${Math.round(restante / 60)} min rest.</span></div></header>
     <div class="dots">${dots}</div>
     <section class="card ejcard">
       <div class="bigfig" data-fig="${e.id}"></div>
@@ -548,8 +617,9 @@ function vCardio(s, p) {
       <li><span>Enfriamiento</span><b>${CARDIO_LIBRE.enf.min} min · ${f1c(CARDIO_LIBRE.enf.vel)} km/h · ${CARDIO_LIBRE.enf.inc} %</b></li></ul>
       <div class="difs">${Object.entries(DIF).map(([k, tx]) => `<button class="dif ${k} ${c.dif === k ? "on" : ""}" data-act="cDif" data-v="${k}">${tx}</button>`).join("")}</div>
       ${c.dif ? `${avisoCopia(s)}<a class="btn" href="#/hoy">Volver a Hoy</a>` : ""}<button class="btn borrar" data-act="borrarSes" data-f="${s.fecha}">🗑 Eliminar este entreno</button></section>` : "";
-  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.titulo)} · ${Math.round(total / 60)} min</b><span>Semana ${s.semana} · ${fase(s.semana).nombre}</span></div><div class="reloj"><b data-ctot>${mmss(t)}</b><span>de ${mmss(total)}</span></div></header>
+  return `<header class="wbar"><button class="x" data-act="salir" aria-label="Salir">✕</button><div class="wt"><b>${esc(p.titulo)} · ${Math.round(total / 60)} min</b><span>${fase(s.semana).nombre}</span></div><div class="reloj"><b data-ctot>${mmss(t)}</b><span>de ${mmss(total)}</span></div></header>
     ${resumen}
+    ${consejoEnergia(s, "cardio") && !c.hecho ? `<p class="nota energia-nota">${esc(consejoEnergia(s, "cardio"))}</p>` : ""}
     <section class="card cardiocard">
       <div class="bigfig" data-fig="cinta" style="--inc:${incFig}"></div>
       <div class="fases">${bl.map((f) => `<div style="flex:${Math.max(f.min, 9)}" class="${f.id === fa.id && c.inicio && !c.hecho ? "on" : ""} ${c.inicio && t >= f.fin ? "ok" : ""}"><b>${f.id === "cal" ? "Calentar" : f.id === "enf" ? "Enfriar" : "Bloque principal"}</b><span>${f.min} min</span><u data-fu="${f.id}" style="width:${c.inicio ? Math.min(100, Math.max(0, ((t - f.ini) / (f.fin - f.ini)) * 100)) : 0}%"></u></div>`).join("")}</div>
@@ -670,6 +740,11 @@ function tickDescanso(s, p) {
   an.style.strokeDasharray = C; an.style.strokeDashoffset = C * (1 - Math.min(1, resta / (d.total || 1)));
 }
 function destello() { document.body.classList.remove("flash"); void document.body.offsetWidth; document.body.classList.add("flash"); }
+// Si el entreno de hoy aún no se ha empezado, se vuelve a crear con la fase actualizada
+function limpiaHoy() {
+  const f = db.hoy(), s = db.sesion(f);
+  if (s && estadoSesion(s) === "pend" && !Object.values(s.ej || {}).some((r) => r.series?.some((x) => x.hecho))) db.borrarSesion(f);
+}
 function toastAccion(t, etiqueta, fn, ms = 5500) {
   document.querySelectorAll(".toast").forEach((x) => x.remove());
   const d = document.createElement("div"); d.className = "toast accion";
@@ -694,15 +769,37 @@ $app.addEventListener("click", async (ev) => {
 
   switch (act) {
     case "regla": {
-      if (!confirm("¿Registrar hoy como primer día de la regla? Esta semana pasará a ser la Semana 1.")) return;
-      const previa = [...db.st().reglas].sort().filter((x) => x < db.hoy()).pop();
-      db.registrarRegla(); toast("Regla registrada · Semana 1");
+      if (!confirm("¿Registrar hoy como primer día de la regla? Desde hoy, fase menstrual.")) return;
+      const previa = db.reglas().map((r) => r.inicio).filter((x) => x < db.hoy()).pop();
+      db.registrarRegla(); limpiaHoy(); toast("Regla registrada · fase menstrual");
       if (previa) ir(`#/ciclo/${previa}`); else render(); return;
     }
-    case "addRegla": { const v = document.getElementById("fRegla").value; if (v) { db.registrarRegla(v); toast("Regla añadida"); render(); } return; }
-    case "borraRegla": if (confirm("¿Borrar esta fecha?")) { db.borrarRegla(el.dataset.f); render(); } return;
-    case "manual": { db.forzarSemana(db.infoSemana().lunes, +el.dataset.n); render(); return; }
+    case "addRegla": {
+      const v = document.getElementById("fRegla").value, d = Math.round(num(document.getElementById("dRegla").value));
+      if (!v) return;
+      db.registrarRegla(v); if (d > 0) db.ponDuracion(v, d); limpiaHoy(); toast("Regla añadida"); render(); return;
+    }
+    case "durRegla": { const r = db.reglas().find((x) => x.inicio === el.dataset.f); const cur = r?.fin ? db.diasEntre(r.inicio, r.fin) + 1 : db.duracionHabitual(); db.ponDuracion(el.dataset.f, Math.max(1, Math.min(12, cur + +el.dataset.d))); render(); return; }
+    case "sangra": { db.respondeSangrado(db.hoy(), el.dataset.v === "si"); limpiaHoy(); render(); return; }
+    case "decideFase": { db.decideFase(el.dataset.m, +el.dataset.n); limpiaHoy(); toast(+el.dataset.n === 1 ? "Esta semana: fase menstrual" : "Esta semana: fase folicular"); render(); return; }
+    case "caminata": abrirCaminata(); return;
+    case "hojaCerrar": { const h = document.getElementById("hoja"); if (h) h.hidden = true; return; }
+    case "guardaCaminata": {
+      const fe = document.getElementById("cwF").value || db.hoy(), km = num(document.getElementById("cwKm").value), mn = Math.round(num(document.getElementById("cwMin").value));
+      if (!(km > 0) || !(mn > 0)) { toast("Pon los km y los minutos"); return; }
+      db.addExtra({ fecha: fe, tipo: "caminata", km: Math.round(km * 100) / 100, min: mn, fase: db.infoFase(fe).fase });
+      document.getElementById("hoja").hidden = true; toast("Caminata guardada"); render(); return;
+    }
+    case "borrarExtra": {
+      const id = el.dataset.id; if (!confirm("¿Eliminar esta caminata?")) return;
+      const x = db.borrarExtra(id); render();
+      toastAccion("Caminata eliminada", "Deshacer", () => { db.restaurarExtra(id, x); render(); }); return;
+    }
+    case "borraRegla": if (confirm("¿Borrar esta regla del historial?")) { db.borrarRegla(el.dataset.f); limpiaHoy(); render(); } return;
+    case "manual": { db.forzarSemana(db.infoSemana().lunes, +el.dataset.n); limpiaHoy(); render(); return; }
     case "probar": pitidoFin(); destello(); return;
+    case "simDia": { try { localStorage.setItem("prueba-hoy", db.sumaDias(db.hoy(), 1)); } catch {} location.reload(); return; }
+    case "simReset": { if (!confirm("¿Borrar todos los datos de la prueba y volver a hoy?")) return; try { localStorage.removeItem(window.APP_KEY); localStorage.removeItem("prueba-hoy"); } catch {} location.reload(); return; }
     case "actualizar": {
       toast("Buscando actualización…");
       try { const reg = await navigator.serviceWorker?.getRegistration(); await reg?.update(); } catch {}
@@ -718,7 +815,7 @@ $app.addEventListener("click", async (ev) => {
     case "borrarSes": {
       const f = el.dataset.f, ses = db.sesion(f); if (!ses) return;
       const p = sesionDe(ses.dia, ses.semana);
-      if (!confirm(`¿Eliminar el entreno ${p.titulo} del ${NOMBRE_DIA[db.diaISO(db.parse(f))].toLowerCase()} ${db.fechaCorta(f)} (Semana ${ses.semana})?\n\nSe borrarán sus pesos y valoraciones. El resto de tus entrenos no cambia.`)) return;
+      if (!confirm(`¿Eliminar el entreno ${p.titulo} del ${NOMBRE_DIA[db.diaISO(db.parse(f))].toLowerCase()} ${db.fechaCorta(f)} (${fase(ses.semana).nombre.toLowerCase()})?\n\nSe borrarán sus pesos y valoraciones. El resto de tus entrenos no cambia.`)) return;
       const copia = structuredClone(ses);
       db.borrarSesion(f);
       if (ruta().r === "entreno") ir("#/progreso"); else render();
@@ -817,6 +914,7 @@ $app.addEventListener("click", async (ev) => {
   }
 });
 $app.addEventListener("change", (ev) => {
+  if (ev.target.id === "simHoy") { try { localStorage.setItem("prueba-hoy", ev.target.value); } catch {} location.reload(); return; }
   const el = ev.target.closest("[data-campo]");
   if (!el) return;
   const { ses: s } = planDe(ruta().a);
@@ -852,4 +950,4 @@ async function exportarCopia() {
 
 // Arranque
 render();
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (!window.PRUEBA && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});

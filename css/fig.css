@@ -24,3 +24,6 @@
 .fig .grip{fill:var(--db)}
 .fig .rope{stroke:#C9A66B}
 .fig .floor{stroke:var(--eq-fill)}
+
+.fig .copa{fill:#9CC59A}.fig .tronco{fill:#A3825F;stroke:none}.fig .camino{stroke:#D8CFC2}.fig .nube{fill:#E6E9EE}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fig .copa{fill:#4F7A55}:root:not([data-theme="light"]) .fig .tronco{fill:#7A5E43}:root:not([data-theme="light"]) .fig .camino{stroke:#3E3A44}:root:not([data-theme="light"]) .fig .nube{fill:#2F3138}}

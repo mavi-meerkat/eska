@@ -410,6 +410,17 @@ export const FIG = {
   },
 };
 
+// Caminata al aire libre: la misma figura caminando, sin cinta y con un árbol al lado
+FIG.caminata = {
+  hi: ["legs"], dur: 520, hold: 0, keys: FIG.cinta.keys,
+  back: (g) => {
+    g.rect(154, 98, 9, 52, "tronco", 3);
+    g.circle([158, 82], 20, "copa"); g.circle([144, 96], 13, "copa"); g.circle([172, 96], 13, "copa"); g.circle([158, 66], 12, "copa");
+    g.line([14, 150], [190, 150], "camino", 4);
+    g.ellipse([40, 30], 12, 4, "nube"); g.ellipse([52, 27], 9, 4, "nube");
+  },
+};
+
 function jalon(ancho, anchoFin, nuca) {
   const start = { view: "front", x: 100, y: 104, t: 180, ...mirror({ l: 8, s: 2 }), q1: 0.35, q2: 0.35, h1: [100 - ancho, 12], h2: [100 + ancho, 12] };
   const end = { ...start, h1: [100 - anchoFin, nuca ? 52 : 66], h2: [100 + anchoFin, nuca ? 52 : 66] };
