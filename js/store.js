@@ -42,6 +42,7 @@ function migrar() {
   S.extras = S.extras || {};
   // Historial que Ana nos dio (primer día y duración); se añade una sola vez
   if (!S.histCargado) {
+    S.manual = {}; // los ajustes manuales del sistema antiguo (Semana 1–4) ya no aplican
     const H = [["2025-10-27", 6], ["2025-11-27", 7], ["2025-12-27", 6], ["2026-01-29", 5], ["2026-02-28", 5], ["2026-03-30", 5], ["2026-05-01", 4], ["2026-05-31", 4], ["2026-06-27", 5], ["2026-07-27", 6], ["2026-08-23", 6], ["2026-09-20", 7]];
     for (const [i, d] of H) {
       const ex = S.reglas.find((r) => r.inicio === i);
