@@ -39,6 +39,7 @@ export const COLORES = [
   { id: "burdeos", nombre: "Burdeos", hex: "#6E2233" },
   { id: "rosa", nombre: "Rosa", hex: "#E8A2B4" },
   { id: "morado", nombre: "Morado", hex: "#6E4C8E" },
+  { id: "lila", nombre: "Lila", hex: "#B7A7C6" },
   { id: "estampado", nombre: "Estampado", hex: "#B08FA0", estampado: true },
 ];
 export const color = (id) => COLORES.find((c) => c.id === id) || COLORES[0];
