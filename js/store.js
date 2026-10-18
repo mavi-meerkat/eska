@@ -40,6 +40,7 @@ function migrar() {
   S.decision = S.decision || {};
   S.resp = S.resp || {};
   S.extras = S.extras || {};
+  S.averias = S.averias || {};
   // Historial que Ana nos dio (primer día y duración); se añade una sola vez
   if (!S.histCargado) {
     S.manual = {}; // los ajustes manuales del sistema antiguo (Semana 1–4) ya no aplican
@@ -122,6 +123,11 @@ export function preguntaFase(fecha = hoy()) {
   return { R, M1, recomendada: recomendacion(R), diaLunes: diasEntre(R.inicio, M1) + 1 };
 }
 export function decideFase(M1, n) { S.decision[M1] = n; guardar(); }
+
+// --- Máquinas estropeadas: { idEjercicio: fecha en que se marcó } ---
+export const averias = () => S.averias || {};
+export function marcaAveria(id, fecha = hoy()) { S.averias[id] = fecha; guardar(); }
+export function quitaAveria(id) { delete S.averias[id]; guardar(); }
 
 // --- Actividades sueltas (caminata al aire libre) ---
 export const extras = () => Object.entries(S.extras).map(([id, x]) => ({ id, ...x })).sort((a, b) => (a.fecha < b.fecha ? 1 : -1));

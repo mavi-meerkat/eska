@@ -42,7 +42,7 @@ function cortoPeso(id, v) {
 }
 const serieTxt = (id, x) => { const p = cortoPeso(id, x.kg); return p ? `${p}×${x.reps}` : `${x.reps} reps`; };
 const ETQ_PESO = { mancuerna: "kg", discos: "+ kg discos", placas: "placa" };
-const VERSION_APP = "14 · 19 oct";
+const VERSION_APP = "15 · 19 oct";
 const SERIE_SEG = 40; // tiempo estimado de trabajo por serie
 // Alternos (1 rep = los dos brazos) y unilaterales (todas las reps con una pierna y luego la otra) duran el doble.
 const segSerie = (e) => SERIE_SEG * (e && EJ[e.id]?.doble ? 2 : 1);
@@ -477,8 +477,10 @@ function vFuerza(s, p) {
   const n = p.ejercicios.length;
   if (s.fin && s.idx == null) s.idx = 0;
   const i = Math.min(s.idx ?? 0, n - 1);
-  const e = p.ejercicios[i];
-  const r = (s.ej[i] = s.ej[i] || { id: e.id, series: [], dif: null });
+  const base = p.ejercicios[i];
+  const r = (s.ej[i] = s.ej[i] || { id: base.id, series: [], dif: null });
+  // Máquina estropeada: el ejercicio puede estar saltado (r.averia) o sustituido (r.sust)
+  const e = r.sust ? { ...EJ[r.sust], id: r.sust, detalle: `En lugar de: ${base.nombre} (máquina estropeada)` } : base;
   if (r.id !== e.id) { r.id = e.id; r.series = []; r.dif = null; }
   const { mismaFase, ult } = ultimaVez(e.id, s.fecha, s.semana);
   const ref = mismaFase || ult;
@@ -503,8 +505,8 @@ function vFuerza(s, p) {
   db.guardar();
 
   const dots = p.ejercicios.map((x, k) => {
-    const rr = s.ej[k], ok = rr && rr.dif;
-    return `<button class="dot ${k === i ? "on" : ""} ${ok ? "ok" : ""}" data-act="irEj" data-i="${k}">${k + 1}</button>`;
+    const rr = s.ej[k], ok = rr && (rr.dif || rr.averia);
+    return `<button class="dot ${k === i ? "on" : ""} ${ok ? "ok" : ""} ${rr?.averia ? "av" : ""}" data-act="irEj" data-i="${k}">${rr?.averia ? "⚠" : k + 1}</button>`;
   }).join("");
   const filas = r.series.map((x, k) => `<div class="serie ${x.hecho ? "hecha" : ""}" data-k="${k}">
       <span class="sn">${k + 1}</span>
@@ -524,10 +526,11 @@ function vFuerza(s, p) {
       <h2>${esc(e.nombre)}</h2>
       ${e.detalle ? `<p class="detalle">${esc(e.detalle)}</p>` : ""}${e.nota ? `<p class="intro">${esc(e.nota)}</p>` : ""}
       <div class="pauta"><div><b>${p.vol.series}</b><span>series</span></div><div><b>${p.vol.reps}</b><span>${e.doble === "pierna" ? "reps por pierna" : e.doble === "brazo" ? "reps (2 brazos)" : "reps"}</span></div><div><b>${p.vol.descansoTxt || p.vol.descanso + " s"}</b><span>descanso</span></div></div>
-      ${ultTxt}${enTxt ? `<p class="nota">${esc(enTxt)}</p>` : ""}
+      ${r.averia ? "" : ultTxt}${enTxt && !r.averia ? `<p class="nota">${esc(enTxt)}</p>` : ""}
+      ${avisoAveria(base, r)}
     </section>
-    <section class="card series">${sinPeso ? `<p class="nota">Sin cargar peso: deja 0 discos (solo el peso propio de la máquina).</p>` : tp === "discos" ? `<p class="nota">Apunta los kg de discos que añades; la máquina ya tiene su propio peso.</p>` : tp === "placas" ? `<p class="nota">Apunta el número de placa.</p>` : ""}${filas}</section>
-    <section class="card difsel ${todas ? "" : "apagado"}"><h3>¿Cómo te ha resultado?</h3><div class="difs">${Object.entries(DIF).map(([k, t]) => `<button class="dif ${k} ${r.dif === k ? "on" : ""}" data-act="dif" data-v="${k}">${t}</button>`).join("")}</div></section>
+    ${r.averia ? `<section class="card averia-ok"><h3>⚠️ Ejercicio saltado</h3><p class="suave">La máquina estaba estropeada. No cuenta para tus pesos ni tus récords.</p><button class="mini" data-act="averiaDeshacer">Deshacer</button></section>` : `<section class="card series">`}${r.averia ? "" : sinPeso ? `<p class="nota">Sin cargar peso: deja 0 discos (solo el peso propio de la máquina).</p>` : tp === "discos" ? `<p class="nota">Apunta los kg de discos que añades; la máquina ya tiene su propio peso.</p>` : tp === "placas" ? `<p class="nota">Apunta el número de placa.</p>` : ""}${r.averia ? "" : `${filas}${esMaquina(base.id) && !r.sust ? `<button class="averia-btn" data-act="averia">⚠️ Máquina estropeada</button>` : ""}${r.sust ? `<button class="averia-btn" data-act="averiaDeshacer">↩︎ Volver a ${esc(base.nombre)}</button>` : ""}</section>`}
+    <section class="card difsel ${todas ? "" : "apagado"}" ${r.averia ? "hidden" : ""}><h3>¿Cómo te ha resultado?</h3><div class="difs">${Object.entries(DIF).map(([k, t]) => `<button class="dif ${k} ${r.dif === k ? "on" : ""}" data-act="dif" data-v="${k}">${t}</button>`).join("")}</div></section>
     <footer class="wfoot">
       <button class="btn sec" data-act="irEj" data-i="${i - 1}" ${i === 0 ? "disabled" : ""}>‹ Anterior</button>
       ${ultimo ? `<button class="btn" data-act="terminar">Terminar entreno</button>` : `<button class="btn" data-act="irEj" data-i="${i + 1}">Siguiente ›</button>`}
@@ -556,9 +559,35 @@ function abrirHoja(id, k, actual) {
   h.hidden = false;
   h.querySelector(".hv.on")?.scrollIntoView({ block: "center" });
 }
+// --- Máquina estropeada ---
+const ALTERNATIVAS = {
+  abductores: ["hipThrust"], aductores: ["sumo"], prensa: ["goblet"], hack: ["goblet"], extCuad: ["goblet"], curlFemoral: ["rumano"],
+  pressMaqPlano: ["pressMancPlano"], pressMaqInc: ["pressMancInc"],
+  curlPolea: ["curlSimul", "curlAlterno"],
+  jalonNuca: ["remoCorta", "remoLarga", "cubana"], jalonMedia: ["remoCorta", "remoLarga", "cubana"], jalonCorta: ["remoCorta", "remoLarga", "cubana"], chestPull: ["remoCorta", "remoLarga", "cubana"],
+  remoCorta: ["jalonMedia", "chestPull", "cubana"], remoLarga: ["jalonMedia", "chestPull", "cubana"],
+  facePull: ["aperturaAlterna", "cubana"], crucesInv: ["aperturaAlterna", "cubana"],
+  tricepsCuerda: ["fondosBanco"], tricepsBarra: ["fondosBanco"],
+};
+const esMaquina = (id) => !!ALTERNATIVAS[id];
+function avisoAveria(base, r) {
+  const f = db.averias()[base.id];
+  if (!f || r.sust || r.averia || r.series.some((x) => x.hecho)) return "";
+  return `<div class="aviso-av">⚠️ El ${fc(f)} esta máquina estaba estropeada. ¿Ya funciona?
+    <div class="difs"><button class="mini prim" data-act="averiaArreglada">Sí, ya funciona</button><button class="mini" data-act="averia">No</button></div></div>`;
+}
+function abrirAveria(base) {
+  const h = document.getElementById("hoja"); if (!h) return;
+  h.innerHTML = `<div class="hcont"><div class="hcab"><b>⚠️ ${esc(base.nombre)}</b><button class="mini" data-act="hojaCerrar">Cerrar</button></div>
+    <p class="suave chico">¿Qué hacemos con este ejercicio?</p>
+    <div class="altlista">${ALTERNATIVAS[base.id].map((a) => `<button class="altrow" data-act="averiaSust" data-v="${a}"><div class="thumb">${svgEstatico(a)}</div><div><b>Sustituir por ${esc(EJ[a].nombre)}</b><span>${esc(EJ[a].equipo)}</span></div></button>`).join("")}
+    <button class="altrow salta" data-act="averiaSalta"><div class="thumb ic">⏭</div><div><b>Saltar este ejercicio</b><span>Pasas al siguiente; no cuenta para pesos ni récords</span></div></button></div></div>`;
+  h.hidden = false;
+}
 function estimarRestante(s, p) {
   let t = 0;
   p.ejercicios.forEach((e, k) => {
+    if (s.ej[k]?.averia) return;
     const pend = (s.ej[k]?.series || []).filter((x) => x && x.hecho).length;
     const quedan = p.vol.series - pend;
     if (quedan > 0) t += quedan * segSerie(e) + Math.max(0, quedan - 1) * p.vol.descanso + (k > (s.idx ?? 0) ? db.st().ajustes.cambioEj : 0);
@@ -571,7 +600,12 @@ function avisoCopia(s) {
 }
 function resumenFuerza(s, p) {
   const dur = Math.round((s.fin - (s.inicio || s.fin)) / 60000);
-  const filas = p.ejercicios.map((e, k) => { const r = s.ej[k] || { series: [] }; const ok = (r.series || []).filter((x) => x.hecho); return `<li><b>${esc(e.nombre)}</b><span>${ok.length ? ok.map((x) => serieTxt(e.id, x)).join(" · ") : "sin registrar"}</span>${r.dif ? `<span class="dif ${r.dif}">${DIF[r.dif]}</span>` : ""}</li>`; }).join("");
+  const filas = p.ejercicios.map((e, k) => {
+    const r = s.ej[k] || { series: [] };
+    if (r.averia) return `<li><b>${esc(e.nombre)}</b><span>⚠️ máquina estropeada · saltado</span></li>`;
+    const id = r.sust || e.id, ok = (r.series || []).filter((x) => x.hecho);
+    return `<li><b>${esc(r.sust ? EJ[r.sust].nombre : e.nombre)}</b>${r.sust ? `<span>⚠️ en lugar de ${esc(e.nombre)}</span>` : ""}<span>${ok.length ? ok.map((x) => serieTxt(id, x)).join(" · ") : "sin registrar"}</span>${r.dif ? `<span class="dif ${r.dif}">${DIF[r.dif]}</span>` : ""}</li>`;
+  }).join("");
   return `<section class="card resumen"><h3>✓ Entreno completado · ${dur} min</h3><ul class="lista compacta">${filas}</ul><p class="nota">Puedes corregir cualquier dato tocando el número del ejercicio arriba.</p>${avisoCopia(s)}<a class="btn" href="#/hoy">Volver a Hoy</a><button class="btn borrar" data-act="borrarSes" data-f="${s.fecha}">🗑 Eliminar este entreno</button></section>`;
 }
 
@@ -858,7 +892,7 @@ $app.addEventListener("click", async (ev) => {
       db.guardar(); render(); return;
     }
     case "terminar": {
-      const faltan = p.ejercicios.some((_, k) => !s.ej[k]?.dif);
+      const faltan = p.ejercicios.some((_, k) => !s.ej[k]?.dif && !s.ej[k]?.averia);
       if (faltan && !confirm("Hay ejercicios sin marcar cómo te han ido. ¿Terminar igualmente?")) return;
       s.fin = Date.now(); s.inicio = s.inicio || s.fin; s.descanso = null; db.guardar(); mantenerPantalla(false); render();
       document.querySelector(".resumen")?.scrollIntoView({ behavior: "smooth" }); return;
@@ -875,6 +909,22 @@ $app.addEventListener("click", async (ev) => {
       document.getElementById("hoja").hidden = true;
       db.guardar(); refrescaSeries(r); tickDescanso(s, p); return;
     }
+    case "averia": abrirAveria(p.ejercicios[i]); return;
+    case "averiaArreglada": db.quitaAveria(p.ejercicios[i].id); toast("Anotado: la máquina ya funciona"); render(); return;
+    case "averiaSust": {
+      const b0 = p.ejercicios[i]; db.marcaAveria(b0.id, s.fecha);
+      Object.assign(r, { sust: el.dataset.v, id: el.dataset.v, series: [], dif: null, averia: false, ajuste: "" });
+      document.getElementById("hoja").hidden = true; db.guardar(); render(); toast("Sustituido por " + EJ[el.dataset.v].nombre); return;
+    }
+    case "averiaSalta": {
+      const b0 = p.ejercicios[i]; db.marcaAveria(b0.id, s.fecha);
+      Object.assign(r, { averia: true, sust: null, id: b0.id, series: [], dif: null });
+      if (!s.inicio) s.inicio = Date.now();
+      document.getElementById("hoja").hidden = true;
+      if (i < p.ejercicios.length - 1) s.idx = i + 1;
+      db.guardar(); render(); toast("Ejercicio saltado por avería"); return;
+    }
+    case "averiaDeshacer": { const b0 = p.ejercicios[i]; Object.assign(r, { averia: false, sust: null, id: b0.id, series: [], dif: null }); db.guardar(); render(); return; }
     case "dSalta": s.descanso = null; db.guardar(); tickDescanso(s, p); return;
     // cardio
     case "cGo": {
