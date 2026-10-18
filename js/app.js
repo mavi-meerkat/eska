@@ -41,7 +41,7 @@ function cortoPeso(id, v) {
 }
 const serieTxt = (id, x) => { const p = cortoPeso(id, x.kg); return p ? `${p}×${x.reps}` : `${x.reps} reps`; };
 const ETQ_PESO = { mancuerna: "kg", discos: "+ kg discos", placas: "placa" };
-const VERSION_APP = "12 · 14 oct";
+const VERSION_APP = "13 · 18 oct";
 const SERIE_SEG = 40; // tiempo estimado de trabajo por serie
 // Alternos (1 rep = los dos brazos) y unilaterales (todas las reps con una pierna y luego la otra) duran el doble.
 const segSerie = (e) => SERIE_SEG * (e && EJ[e.id]?.doble ? 2 : 1);
@@ -509,13 +509,14 @@ function resumenFuerza(s, p) {
 // --- Cardio libre ---
 const f1c = (n) => (+n).toFixed(1).replace(".", ",");
 function cardioTiempos(p) { let acc = 0; return p.bloques.map((b) => { const ini = acc; acc += b.min * 60; return { ...b, ini, fin: acc }; }); }
+function cardioReal(c) { if (!c?.inicio) return 0; const ahora = c.pausa || Date.now(); return (ahora - c.inicio - (c.pausado || 0)) / 1000; }
 function cardioTrans(c) { if (!c?.inicio) return 0; const ahora = c.pausa || Date.now(); return (ahora - c.inicio - (c.pausado || 0)) / 1000 + (c.salto || 0); }
 const faseDe = (bl, t) => bl.find((b) => t < b.fin) || bl[bl.length - 1];
 // Minutos por combinación de velocidad e inclinación en el bloque principal
 function combosCardio(c, p) {
   const bl = cardioTiempos(p), pri = bl[1], tr = c?.tramos || [];
   if (!tr.length) return [];
-  const tPri = Math.min(pri.min * 60, Math.max(0, Math.min(cardioTrans(c), bl[2].fin) - pri.ini));
+  const tPri = c.corte != null ? c.corte : Math.min(pri.min * 60, Math.max(0, Math.min(cardioTrans(c), bl[2].fin) - pri.ini));
   const m = new Map();
   tr.forEach((x, i) => { const hasta = i < tr.length - 1 ? tr[i + 1].desde : tPri; const k = `${x.vel}|${x.inc}`; m.set(k, (m.get(k) || 0) + Math.max(0, hasta - x.desde)); });
   return [...m.entries()].map(([k, sg]) => { const [v, i] = k.split("|"); return { vel: +v, inc: +i, s: sg }; }).filter((x) => x.s >= 1);
@@ -530,7 +531,7 @@ function vCardio(s, p) {
   const enPri = c.inicio && !c.hecho && fa.id === "pri";
   const priAcabado = c.inicio && (c.hecho || t >= pri.fin);
   const incFig = !c.inicio || fa.id === "cal" ? CARDIO_LIBRE.cal.inc : fa.id === "enf" ? CARDIO_LIBRE.enf.inc : inc;
-  const tPri = Math.max(0, Math.min(pri.min * 60, t - pri.ini));
+  const tPri = c.corte != null ? c.corte : Math.max(0, Math.min(pri.min * 60, t - pri.ini));
   const tramos = (c.tramos || []).map((x, i, arr) => {
     const hasta = i < arr.length - 1 ? arr[i + 1].desde : tPri, actual = i === arr.length - 1 && enPri;
     return `<li class="${actual ? "actual" : ""}"><i>Tramo ${i + 1}<br>min ${mmss(x.desde)}</i><span>${f1c(x.vel)} km/h · ${x.inc} %</span><em ${actual ? "data-tdur" : ""}>${mmss(hasta - x.desde)}</em></li>`;
@@ -543,6 +544,7 @@ function vCardio(s, p) {
   const resumen = c.hecho ? `<section class="card difsel"><h3>${c.dif ? "✓ Cardio completado" : "¡Hecho! ¿Cómo te ha resultado?"}</h3>
       <ul class="lista compacta resum"><li><span>Calentamiento</span><b>${CARDIO_LIBRE.cal.min} min · ${f1c(CARDIO_LIBRE.cal.vel)} km/h · ${CARDIO_LIBRE.cal.inc} %</b></li>
       ${combos.length ? combos.map((x) => `<li><span>Bloque principal</span><b>${minTxt(x.s)} · ${f1c(x.vel)} km/h · ${x.inc} %</b></li>`).join("") : `<li><span>Bloque principal</span><b>sin datos</b></li>`}
+      ${c.corte != null && c.corte < pri.min * 60 - 1 ? `<li><span>✂︎ Bloque cortado</span><b>en el min ${mmss(c.corte)} de ${pri.min}</b></li>` : ""}
       <li><span>Enfriamiento</span><b>${CARDIO_LIBRE.enf.min} min · ${f1c(CARDIO_LIBRE.enf.vel)} km/h · ${CARDIO_LIBRE.enf.inc} %</b></li></ul>
       <div class="difs">${Object.entries(DIF).map(([k, tx]) => `<button class="dif ${k} ${c.dif === k ? "on" : ""}" data-act="cDif" data-v="${k}">${tx}</button>`).join("")}</div>
       ${c.dif ? `${avisoCopia(s)}<a class="btn" href="#/hoy">Volver a Hoy</a>` : ""}<button class="btn borrar" data-act="borrarSes" data-f="${s.fecha}">🗑 Eliminar este entreno</button></section>` : "";
@@ -563,7 +565,9 @@ function vCardio(s, p) {
       ${tramos ? `<ul class="tramos">${tramos}</ul>` : ""}
     </section>
     ${c.hecho ? "" : `<button class="btn nuevos" data-act="cNuevos" ${enPri ? "" : "disabled"}>＋ Nuevos parámetros</button>
-    <p class="nota centro" data-tpri>${enPri ? `Marca el minuto ${mmss(tPri)} del bloque y empieza un tramo nuevo.` : "Se activa durante el bloque principal."}</p>`}
+    <p class="nota centro" data-tpri>${enPri ? `Marca el minuto ${mmss(tPri)} del bloque y empieza un tramo nuevo.` : "Se activa durante el bloque principal."}</p>
+    <button class="btn cortar" data-act="cCortar" ${enPri ? "" : "disabled"}>✂︎ Cortar</button>
+    <p class="nota centro">Termina el bloque principal ahora y pasa directamente al enfriamiento.</p>`}
     <section class="card"><h3>Enfriamiento · ${CARDIO_LIBRE.enf.min} min</h3><p class="suave chico">Fijo: 3,0 km/h y 0 %</p>
     ${c.inicio && !c.hecho ? `<button class="mini" data-act="cFin">Terminar ya</button>` : ""}</section>
     <div id="hoja" class="hoja" hidden></div>`;
@@ -634,7 +638,7 @@ function tickEntreno(fecha) {
     faseCardio = fa.id; render(); return;
   }
   faseCardio = fa.id;
-  if (t >= total) { c.hecho = true; c.pausa = Date.now(); c.minutos = Math.round(t / 60); s.cardio = c; db.guardar(); mantenerPantalla(false); render(); }
+  if (t >= total) { c.hecho = true; c.pausa = Date.now(); c.minutos = Math.round(cardioReal(c) / 60); s.cardio = c; db.guardar(); mantenerPantalla(false); render(); }
 }
 
 function tickDescanso(s, p) {
@@ -785,8 +789,18 @@ $app.addEventListener("click", async (ev) => {
       const c = s.cardio; if (c.pausa) { c.pausado += Date.now() - c.pausa; c.pausa = null; mantenerPantalla(true); } else c.pausa = Date.now();
       db.guardar(); render(); return;
     }
+    case "cCortar": {
+      const bl = cardioTiempos(p), t = cardioTrans(s.cardio), f = faseDe(bl, t);
+      if (f.id !== "pri") return;
+      const min = t - bl[1].ini;
+      if (!confirm(`¿Cortar el bloque principal en el minuto ${mmss(min)} y pasar al enfriamiento?`)) return;
+      s.cardio.corte = min;
+      s.cardio.salto = (s.cardio.salto || 0) + (bl[1].fin - t) + 0.05;
+      db.guardar(); return; // el reloj detecta el cambio de fase: pitido final, destello y enfriamiento
+    }
     case "cSalta": {
       const bl = cardioTiempos(p), t = cardioTrans(s.cardio), f = faseDe(bl, t);
+      if (f.id === "pri") s.cardio.corte = t - bl[1].ini;
       s.cardio.salto = (s.cardio.salto || 0) + (f.fin - t) + 0.05; db.guardar(); return;
     }
     case "cMas": { const tp = el.dataset.t, R = CARDIO_LIBRE[tp], act = s.cardio?.[tp] ?? (tp === "vel" ? 5.0 : 5); ponCardio(s, p, tp, act + (+el.dataset.d) * R.paso); return; }
@@ -798,7 +812,7 @@ $app.addEventListener("click", async (ev) => {
       c.tramos = c.tramos || []; c.tramos.push({ desde: t - bl[1].ini, vel: c.vel ?? 5.0, inc: c.inc ?? 5 });
       db.guardar(); render(); toast(`Tramo ${c.tramos.length} desde el min ${mmss(t - bl[1].ini)}`); return;
     }
-    case "cFin": if (confirm("¿Terminar el cardio ahora?")) { s.cardio.hecho = true; s.cardio.pausa = s.cardio.pausa || Date.now(); s.cardio.minutos = Math.round(cardioTrans(s.cardio) / 60); db.guardar(); mantenerPantalla(false); render(); } return;
+    case "cFin": if (confirm("¿Terminar el cardio ahora?")) { s.cardio.hecho = true; s.cardio.pausa = s.cardio.pausa || Date.now(); s.cardio.minutos = Math.round(cardioReal(s.cardio) / 60); db.guardar(); mantenerPantalla(false); render(); } return;
     case "cDif": s.cardio.dif = el.dataset.v; db.guardar(); render(); return;
   }
 });

@@ -267,3 +267,5 @@ button,input,.step,.serie{touch-action:manipulation}
 .resum li b{font-variant-numeric:tabular-nums;font-size:14px}
 .sesrow .tramotxt{color:var(--acc);font-size:12px}
 .cardiocard .cuenta{text-align:center}
+
+.btn.cortar{background:var(--card);color:var(--txt);border:1.5px solid var(--line);margin-top:10px}
