@@ -1,0 +1,19 @@
+{
+  "name": "Mi Entreno · por fases del ciclo",
+  "short_name": "Mi Entreno",
+  "description": "Entreno de fuerza y cardio adaptado a la fase del ciclo menstrual",
+  "lang": "es",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F2EE",
+  "theme_color": "#C2456B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
