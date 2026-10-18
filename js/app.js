@@ -42,7 +42,7 @@ function cortoPeso(id, v) {
 }
 const serieTxt = (id, x) => { const p = cortoPeso(id, x.kg); return p ? `${p}×${x.reps}` : `${x.reps} reps`; };
 const ETQ_PESO = { mancuerna: "kg", discos: "+ kg discos", placas: "placa" };
-const VERSION_APP = "15 · 19 oct";
+const VERSION_APP = "16 · 19 oct";
 const SERIE_SEG = 40; // tiempo estimado de trabajo por serie
 // Alternos (1 rep = los dos brazos) y unilaterales (todas las reps con una pierna y luego la otra) duran el doble.
 const segSerie = (e) => SERIE_SEG * (e && EJ[e.id]?.doble ? 2 : 1);
@@ -422,7 +422,8 @@ function vAjustes() {
       ${pred ? `<div class="reparto"><div><b>${pred.ciclo} días</b><span>ciclo habitual</span></div><div><b>${db.duracionHabitual()} días</b><span>regla habitual</span></div><div><b>${fc(pred.fecha)}</b><span>próxima (aprox.)</span></div></div>` : ""}
       <p class="suave chico" style="margin-top:10px">Añade una regla pasada con su primer día y cuántos días duró:</p>
       <div class="fila"><input type="date" id="fRegla" value="${db.hoy()}" max="${db.hoy()}"><input id="dRegla" inputmode="numeric" placeholder="días" class="dias"><button class="mini prim" data-act="addRegla">Añadir</button></div>
-      <ul class="lista compacta">${reglas}</ul></section>
+      <details class="histreglas"><summary><span>🩸 Historial de reglas</span><em>${R.length}</em></summary>
+        <ul class="lista compacta">${reglas}</ul></details></section>
     <section class="card"><h3>Fase de esta semana</h3><p class="suave">${info.manual ? "Fijada a mano." : `Calculada: ${fase(info.semana).nombre}.`} Si la cambias, las semanas siguientes siguen en orden desde ahí (folicular → ovulatoria → lútea).</p>
       <div class="segs fases5">${nombresF.map((t, n) => `<button class="seg ${(n === 0 && !info.manual) || (info.manual && info.semana === n) ? "on" : ""}" style="--c:${n ? fase(n).color : "var(--txt2)"}" data-act="manual" data-n="${n}">${t}</button>`).join("")}</div></section>
     <section class="card"><h3>Tiempos</h3>

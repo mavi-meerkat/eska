@@ -306,3 +306,9 @@ button,input,.step,.serie{touch-action:manipulation}
 .altrow b{display:block;font-size:15px}.altrow span{font-size:12px;color:var(--txt2)}
 .altrow .thumb{background:var(--card)}.altrow .thumb.ic{display:flex;align-items:center;justify-content:center;font-size:24px}
 .altrow.salta{border-style:dashed}
+
+.histreglas{margin-top:12px;border-top:1px solid var(--line)}
+.histreglas summary{list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:48px;cursor:pointer;font-weight:700}
+.histreglas summary::-webkit-details-marker{display:none}
+.histreglas summary em{font-style:normal;font-weight:650;font-size:14px;color:var(--acc);background:var(--soft);border-radius:999px;padding:6px 12px}
+.histreglas[open] summary em::after{content:" · Ocultar ▲"}.histreglas:not([open]) summary em::after{content:" · Ver ▼"}
