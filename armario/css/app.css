@@ -65,6 +65,9 @@ p{margin:0}
 @media (prefers-color-scheme:dark){.ima.conFoto{background:#E9E9E6}}
 .ima.limpia{background:transparent;aspect-ratio:auto;width:100%;height:100%}
 .ima.limpia.conFoto{background:#fff;border-radius:12px}
+.ima.recorte img{width:88%;height:88%;filter:drop-shadow(0 3px 5px rgba(0,0,0,.2))}
+.ima.limpia.recorte img,.hoyMinis .ima.recorte img{width:100%;height:100%}
+.ima.grande.recorte img{width:84%;height:84%;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
 .ima.grande{border-radius:28px;aspect-ratio:auto;height:min(52vh,330px)}
 .ima.grande .dib{width:66%;height:66%}
 
@@ -151,6 +154,7 @@ p{margin:0}
 /* Formulario */
 .zonaFoto{position:relative;display:flex;align-items:center;justify-content:center;height:230px;border-radius:28px;background:var(--tinte);border:2px dashed rgba(0,0,0,.18);overflow:hidden;cursor:pointer}
 .zonaFoto img{width:100%;height:100%;object-fit:contain;background:#fff}
+.zonaFoto img.rec{background:transparent;padding:14px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2))}
 .zonaVacia{display:flex;flex-direction:column;align-items:center;gap:10px;color:#2A2B28;font-weight:600;font-size:15px}
 .zonaVacia .dib{width:120px;height:120px}
 .zonaVacia span{display:flex;align-items:center;gap:6px;background:#fff;padding:10px 14px;border-radius:22px;min-height:44px}

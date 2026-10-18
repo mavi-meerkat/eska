@@ -19,7 +19,8 @@ function tinte(hex) {
 function imagen(p, mini = true, cls = "") {
   const c = color(p.color);
   const dentro = p.foto ? `<img data-foto="${esc(p.id)}"${mini ? ' data-mini="1"' : ""} alt="">` : svgPrenda(p.tipo, c.hex, c.estampado);
-  return `<div class="ima ${cls}${p.foto ? " conFoto" : ""}" style="--tinte:${tinte(c.hex)}">${dentro}</div>`;
+  const tipoFoto = !p.foto ? "" : p.recorte ? " recorte" : " conFoto";
+  return `<div class="ima ${cls}${tipoFoto}" style="--tinte:${tinte(c.hex)}">${dentro}</div>`;
 }
 async function hidratar(raiz = $app) {
   for (const el of raiz.querySelectorAll("img[data-foto]")) {
@@ -327,7 +328,7 @@ function vForm(id) {
   const c = color(F.color);
   const tieneFoto = (F.nueva || (F.foto && !F.quitarFoto));
   const zona = F.nueva ? `<img src="${F.url}" alt="Foto de la prenda">`
-    : tieneFoto ? `<img data-foto="${esc(F.id)}" alt="Foto de la prenda">`
+    : tieneFoto ? `<img data-foto="${esc(F.id)}" alt="Foto de la prenda"${p?.recorte ? ' class="rec"' : ""}>`
     : `<div class="zonaVacia">${svgPrenda(F.tipo, c.hex, c.estampado)}<span>${ico("camara")} Hacer o elegir foto</span></div>`;
   const chipsDe = (lista, sel, campo, multi) => lista.map((x) => {
     const on = multi ? sel.includes(x.id) : sel === x.id;
@@ -390,8 +391,8 @@ function eForm(id) {
     try {
       let p;
       if (id) p = db.editarPrenda(id, datos); else p = db.crearPrenda(datos);
-      if (F.nueva) { await db.guardarFoto(p.id, F.nueva.grande, F.nueva.mini); db.editarPrenda(p.id, { foto: true }); }
-      else if (F.quitarFoto && p.foto) { await db.borrarFoto(p.id); db.editarPrenda(p.id, { foto: false }); }
+      if (F.nueva) { await db.guardarFoto(p.id, F.nueva.grande, F.nueva.mini); db.editarPrenda(p.id, { foto: true, recorte: false }); }
+      else if (F.quitarFoto && p.foto) { await db.borrarFoto(p.id); db.editarPrenda(p.id, { foto: false, recorte: false }); }
       if (F.url) URL.revokeObjectURL(F.url);
       F = null;
       aviso(id ? "Cambios guardados" : "Prenda añadida a tu armario");
@@ -415,9 +416,9 @@ function vAjustes() {
     <header class="cab"><h1>Ajustes</h1></header>
     <section class="card">
       <h3>Copia de seguridad</h3>
-      <p class="suave">Tus prendas y fotos se guardan solo en este móvil. Haz una copia de vez en cuando y guárdala en Archivos o iCloud.</p>
+      <p class="suave">Tus prendas y fotos se guardan solo en este móvil. Haz una copia de vez en cuando y guárdala en Archivos o iCloud. Al importar puedes añadir prendas a las que ya tienes o sustituirlo todo.</p>
       <button class="btn" data-acc="exportar">Exportar copia</button>
-      <label class="btn sec">Importar copia<input type="file" accept=".json,application/json" id="importar" class="oculto"></label>
+      <label class="btn sec">Importar copia o prendas<input type="file" accept=".json,application/json" id="importar" class="oculto"></label>
     </section>
     <section class="card">
       <h3>Cómo se combinan</h3>
@@ -449,10 +450,18 @@ function eAjustes() {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   });
   document.getElementById("importar")?.addEventListener("change", async (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    if (db.st().prendas.length && !confirm("Importar sustituye todo lo que hay ahora en el armario por la copia. ¿Seguir?")) return;
-    try { await db.importar(await f.text()); aviso("Copia importada"); ir("#/"); }
-    catch (err) { aviso(err.message || "No se pudo importar"); }
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    try {
+      const j = db.leerCopia(await f.text()), n = j.datos.prendas.length;
+      let modo = "sustituir";
+      if (db.st().prendas.length) {
+        if (confirm(`El archivo trae ${plural(n, "prenda", "prendas")}.\n\nAceptar: añadirlas a las que ya tienes.\nCancelar: ver otras opciones.`)) modo = "anadir";
+        else if (!confirm("¿Sustituir todo tu armario por el contenido del archivo? Lo que tienes ahora se borrará.")) return;
+      }
+      const hechas = await db.importar(j, modo);
+      aviso(modo === "anadir" ? (hechas ? `${plural(hechas, "prenda añadida", "prendas añadidas")}` : "Esas prendas ya estaban en tu armario") : "Copia importada");
+      ir("#/");
+    } catch (err) { aviso(err.message || "No se pudo importar"); }
   });
   acc("vetos", () => { db.quitarVetos(); aviso("Looks recuperados"); render(); });
   acc("ejemplos", () => { db.cargarEjemplos(); aviso("Prendas de ejemplo añadidas"); ir("#/"); });

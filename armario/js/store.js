@@ -107,14 +107,31 @@ export async function exportar() {
   }
   return new Blob([JSON.stringify({ app: "armario", v: 1, fecha: hoy(), datos: S, fotos })], { type: "application/json" });
 }
-export async function importar(texto) {
-  const j = JSON.parse(texto);
+export function leerCopia(texto) {
+  let j;
+  try { j = JSON.parse(texto); } catch { throw new Error("Este archivo no es una copia del armario."); }
   if (j.app !== "armario" || !j.datos || !Array.isArray(j.datos.prendas)) throw new Error("Este archivo no es una copia del armario.");
-  for (const [id, [g, m]] of Object.entries(j.fotos || {})) {
-    await guardarFoto(id, await (await fetch(g)).blob(), await (await fetch(m)).blob());
+  return j;
+}
+// modo "sustituir": deja el armario igual que la copia. "anadir": suma las prendas nuevas a las que ya hay.
+export async function importar(j, modo = "sustituir") {
+  const fotos = j.fotos || {};
+  const blob = async (u) => (await fetch(u)).blob();
+  if (modo === "sustituir") {
+    for (const [id, [g, m]] of Object.entries(fotos)) await guardarFoto(id, await blob(g), await blob(m));
+    S = { ...structuredClone(VACIO), ...j.datos };
+    guardar();
+    return j.datos.prendas.length;
   }
-  S = { ...structuredClone(VACIO), ...j.datos };
+  const hay = new Set(S.prendas.map((p) => p.id));
+  const nuevas = j.datos.prendas.filter((p) => !hay.has(p.id));
+  for (const p of nuevas) if (fotos[p.id]) await guardarFoto(p.id, await blob(fotos[p.id][0]), await blob(fotos[p.id][1]));
+  S.prendas.push(...nuevas);
+  const ids = new Set(S.prendas.map((p) => p.id)), firmas = new Set(S.looks.map((l) => firma(l.piezas)));
+  for (const l of j.datos.looks || []) if (l.piezas.every((id) => ids.has(id)) && !firmas.has(firma(l.piezas))) S.looks.push(l);
+  for (const v of j.datos.vetos || []) if (!S.vetos.includes(v)) S.vetos.push(v);
   guardar();
+  return nuevas.length;
 }
 export async function borrarTodo() {
   for (const p of S.prendas) await borrarFoto(p.id);
