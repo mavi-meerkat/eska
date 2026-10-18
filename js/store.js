@@ -53,6 +53,7 @@ function migrar() {
   }
 }
 migrar();
+guardar();
 
 export const reglas = () => S.reglas;
 export const reglaDe = (fecha) => S.reglas.filter((r) => r.inicio <= fecha).pop() || null;
