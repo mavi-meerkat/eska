@@ -1,11 +1,11 @@
 :root{
   --bg:#F2F2EF; --card:#FFFFFF; --txt:#161616; --txt2:#5E605C; --line:#DADAD5; --soft:#E8E8E4;
-  --acc:#2D45D8; --accTxt:#2D45D8; --accSoft:#E5E8FA; --oscuro:#161616; --peligro:#B42318;
+  --fondoPrenda:#EFEEEA; --acc:#2D45D8; --accTxt:#2D45D8; --accSoft:#E5E8FA; --oscuro:#161616; --peligro:#B42318;
   --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#121312; --card:#1C1D1C; --txt:#F1F1EE; --txt2:#A7A9A3; --line:#323431; --soft:#272926;
+  --fondoPrenda:#E4E3DF; --bg:#121312; --card:#1C1D1C; --txt:#F1F1EE; --txt2:#A7A9A3; --line:#323431; --soft:#272926;
   --acc:#3B53E6; --accTxt:#9AA8FF; --accSoft:#232A55; --oscuro:#F1F1EE; --peligro:#FF7A6B; color-scheme:dark;}
   .hoy{background:#20234A!important;border-color:#343A7A!important}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -65,7 +65,9 @@ p{margin:0}
 @media (prefers-color-scheme:dark){.ima.conFoto{background:#E9E9E6}}
 .ima.limpia{background:transparent;aspect-ratio:auto;width:100%;height:100%}
 .ima.limpia.conFoto{background:#fff;border-radius:12px}
-.ima.recorte img{width:88%;height:88%;filter:drop-shadow(0 3px 5px rgba(0,0,0,.2))}
+.ima.recorte{background:var(--fondoPrenda)}
+.ima.limpia.recorte{background:transparent}
+.ima.recorte img{width:90%;height:90%;filter:drop-shadow(0 3px 5px rgba(0,0,0,.16))}
 .ima.limpia.recorte img,.hoyMinis .ima.recorte img{width:100%;height:100%}
 .ima.grande.recorte img{width:84%;height:84%;filter:drop-shadow(0 8px 14px rgba(0,0,0,.18))}
 .ima.grande{border-radius:28px;aspect-ratio:auto;height:min(52vh,330px)}
@@ -83,6 +85,7 @@ p{margin:0}
 .hoyMinis{display:flex;gap:3px;flex-shrink:0}
 .hoyMinis .ima{width:40px;height:48px;aspect-ratio:auto;border-radius:10px;background:#2C2D2B}
 .hoyMinis .ima.conFoto{background:#fff}
+.hoyMinis .ima.recorte{background:var(--fondoPrenda)}
 .rejilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 @media (min-width:520px){.rejilla{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .tarjeta{display:flex;flex-direction:column;gap:4px;padding:8px 8px 12px;border-radius:20px;background:var(--card)}

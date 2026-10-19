@@ -1,6 +1,6 @@
 // Service worker de Mi Armario: la app funciona sin conexión.
 // Solo toca sus propias cachés ("armario-"), nunca las de Mi Entreno ("gym-").
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "armario-" + VERSION;
 const PRECACHE = ["./", "index.html", "manifest.webmanifest", "css/app.css",
   "js/app.js", "js/datos.js", "js/store.js", "js/combos.js", "js/foto.js", "js/dibujo.js",

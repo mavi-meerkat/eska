@@ -202,7 +202,7 @@ function vLooks(qs) {
     const alt = alternativas(objs, act, h), fija = act[h] && L.fijas.has(act[h]);
     const p = act[h] ? db.prenda(act[h]) : null;
     const flechas = !fija && alt.length > 1;
-    return `<div class="ficha" style="--tinte:${p ? tinte(color(p.color).hex) : "#E8E8E4"}">
+    return `<div class="ficha" style="--tinte:${p ? (p.recorte ? "var(--fondoPrenda)" : tinte(color(p.color).hex)) : "#E8E8E4"}">
       <div class="fCab"><span>${NOMBRE_HUECO[h]}</span>
         ${p ? `<button class="fijar${fija ? " on" : ""}" data-fijar="${p.id}" aria-pressed="${fija}" aria-label="${fija ? "Soltar" : "Fijar"} ${esc(p.nombre)}">${ico("chincheta")}</button>` : ""}</div>
       <div class="fIma">${p ? imagen(p, true, "limpia") : `<div class="sinCapa">Sin capa</div>`}</div>
