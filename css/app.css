@@ -312,3 +312,17 @@ button,input,.step,.serie{touch-action:manipulation}
 .histreglas summary::-webkit-details-marker{display:none}
 .histreglas summary em{font-style:normal;font-weight:650;font-size:14px;color:var(--acc);background:var(--soft);border-radius:999px;padding:6px 12px}
 .histreglas[open] summary em::after{content:" · Ocultar ▲"}.histreglas:not([open]) summary em::after{content:" · Ver ▼"}
+
+/* Progreso plegable */
+.plegable{padding:0}
+.plegable > summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px;cursor:pointer;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2)}
+.plegable > summary::-webkit-details-marker{display:none}
+.plegable > summary em{font-style:normal;text-transform:none;letter-spacing:0;font-size:13px;font-weight:700;color:var(--acc);background:var(--soft);border-radius:999px;padding:5px 11px;white-space:nowrap}
+.plegable > summary em::after{content:"  ▼"}
+.plegable[open] > summary em::after{content:"  ▲"}
+.plegable .plcuerpo{padding:0 18px 12px}
+.plegable.sub{box-shadow:none;background:var(--soft);margin:8px 0;border-radius:14px}
+.plegable.sub > summary{padding:12px 14px;font-size:14px;text-transform:none;letter-spacing:0;color:var(--txt)}
+.plegable.sub > summary em{background:var(--card)}
+.plegable.sub .plcuerpo{padding:0 12px 8px}
+.plegable.sub .papelera{background:var(--card)}

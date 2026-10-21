@@ -42,7 +42,7 @@ function cortoPeso(id, v) {
 }
 const serieTxt = (id, x) => { const p = cortoPeso(id, x.kg); return p ? `${p}×${x.reps}` : `${x.reps} reps`; };
 const ETQ_PESO = { mancuerna: "kg", discos: "+ kg discos", placas: "placa" };
-const VERSION_APP = "16 · 19 oct";
+const VERSION_APP = "17 · 21 oct";
 const SERIE_SEG = 40; // tiempo estimado de trabajo por serie
 // Alternos (1 rep = los dos brazos) y unilaterales (todas las reps con una pierna y luego la otra) duran el doble.
 const segSerie = (e) => SERIE_SEG * (e && EJ[e.id]?.doble ? 2 : 1);
@@ -320,7 +320,7 @@ function vProgreso() {
     const ult = h[0], mejor = Math.max(...h.map((r) => db.maxKg(r.series)));
     return `<li><a href="#/ej/${id}" class="ejrow"><div class="thumb">${svgEstatico(id)}</div><div><b>${esc(EJ[id].nombre)}</b><span>Última: ${txtPeso(id, db.maxKg(ult.series))} (${db.fechaCorta(ult.fecha)}) · Mejor: ${txtPeso(id, mejor)}</span></div>${ult.dif ? `<span class="dif ${ult.dif}">${DIF[ult.dif]}</span>` : ""}</a></li>`;
   }).join("") : `<li class="suave vacio">Cuando completes tu primer entreno verás aquí tus pesos y cómo evolucionan.</li>`;
-  const hist = ses.slice(0, 30).map((s) => {
+  const hist = ses.map((s) => {
     const p = sesionDe(s.dia, s.semana);
     const dur = s.fin && s.inicio ? Math.round((s.fin - s.inicio) / 60000) + " min" : s.cardio?.hecho ? (s.cardio.minutos ?? Math.round(estimar(p) / 60)) + " min" : "en curso";
     const dif = s.cardio?.dif;
@@ -330,19 +330,26 @@ function vProgreso() {
   const caminatas = db.extras().map((x) => `<li class="sesli"><div class="sesrow"><i style="background:${fase(x.fase || 1).color}"></i><div><b>🌳 Caminata al aire libre</b><span>${NOMBRE_DIA[db.diaISO(db.parse(x.fecha))]} ${fc(x.fecha)} · ${fase(x.fase || 1).nombre}</span><span class="tramotxt">${txtCaminata(x)}</span></div></div><button class="papelera" data-act="borrarExtra" data-id="${x.id}" aria-label="Eliminar">🗑</button></li>`);
   const cs = ciclos().reverse().map((c) => `<li><a href="#/ciclo/${c.regla}" class="sesrow"><i style="background:${FASES[0].color}"></i><div><b>Ciclo del ${db.fechaCorta(c.regla)}</b><span>${c.siguiente ? "hasta el " + db.fechaCorta(db.sumaDias(c.siguiente, -1)) : "en curso"}</span></div><span class="flecha">›</span></a></li>`).join("");
   const todas = Object.values(db.st().sesiones).filter((s) => estadoSesion(s) === "hecho");
+  // Entrenos y caminatas, agrupados por mes (lo más reciente primero)
+  const filas = hist ? hist.split(/(?=<li class="sesli">)/) : [];
+  const items = ses.map((x, i) => ({ f: x.fecha, h: filas[i] || "" })).concat(db.extras().map((x, i) => ({ f: x.fecha, h: caminatas[i] }))).sort((a, b) => (a.f < b.f ? 1 : -1));
+  const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const porMes = new Map();
+  for (const it of items) { const k = it.f.slice(0, 7); if (!porMes.has(k)) porMes.set(k, []); porMes.get(k).push(it.h); }
+  const meses = [...porMes.entries()].map(([k, hs]) => { const [y, m] = k.split("-"); return plegable("mes-" + k, `${MESES[+m - 1]} ${y}`, hs.length, `<ul class="lista">${hs.join("")}</ul>`, "sub"); }).join("");
+  const nCic = ciclos().length;
   return `<header class="cab"><div><div class="fecha">Tu evolución</div><h1>Progreso</h1></div></header>
-    <section class="card"><h3>Dificultad por fase</h3>${barrasDif(cuentaDif(todas))}<p class="nota">Todas tus valoraciones (cada ejercicio y cada cardio) agrupadas por semana del ciclo.</p></section>
-    ${cs ? `<section class="card"><h3>Resúmenes de ciclo</h3><ul class="lista">${cs}</ul></section>` : ""}
-    <section class="card"><h3>Ejercicios</h3><ul class="lista">${lista}</ul></section>
-    ${hist || caminatas.length ? `<section class="card"><h3>Entrenos realizados</h3><ul class="lista">${mezclaHist(ses.slice(0, 30), hist, caminatas)}</ul></section>` : ""}`;
+    <section class="card"><h3>Dificultad por fase</h3>${barrasDif(cuentaDif(todas))}<p class="nota">Todas tus valoraciones (cada ejercicio y cada cardio) agrupadas por fase del ciclo.</p></section>
+    ${cs ? plegable("ciclos", "Resúmenes de ciclo", nCic, `<ul class="lista">${cs}</ul>`) : ""}
+    ${plegable("ejercicios", "Ejercicios", ej.length, `<ul class="lista">${lista}</ul>`)}
+    ${items.length ? plegable("entrenos", "Entrenos realizados", items.length, meses) : ""}`;
+}
+// Secciones plegables de Progreso (recuerdan si las dejaste abiertas mientras usas la app)
+const abiertos = new Set();
+function plegable(id, titulo, n, cuerpo, clase = "") {
+  return `<details class="card plegable ${clase}" data-pl="${id}" ${abiertos.has(id) ? "open" : ""}><summary><span>${titulo}</span><em>${n}</em></summary><div class="plcuerpo">${cuerpo}</div></details>`;
 }
 
-// Mezcla entrenos y caminatas por fecha (más reciente primero)
-function mezclaHist(ses, histHtml, camHtml) {
-  const filas = histHtml ? histHtml.split(/(?=<li class="sesli">)/) : [];
-  const items = ses.map((s, i) => ({ f: s.fecha, h: filas[i] || "" })).concat(db.extras().map((x, i) => ({ f: x.fecha, h: camHtml[i] })));
-  return items.sort((a, b) => (a.f < b.f ? 1 : -1)).map((x) => x.h).join("");
-}
 // ---------- RESUMEN DE CICLO Y DIFICULTAD POR FASE ----------
 const PESO_DIF = { facil: 1, normal: 2, dificil: 3 };
 function difsDe(s) {
@@ -790,6 +797,7 @@ function toastAccion(t, etiqueta, fn, ms = 5500) {
 function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 2600); }
 function empezarDescanso(s, seg, tipo) { const fin = Date.now() + seg * 1000; s.descanso = { fin, fin0: fin, total: seg, tipo }; ultimoAviso = -1; db.guardar(); }
 
+document.addEventListener("toggle", (ev) => { const id = ev.target?.dataset?.pl; if (id) (ev.target.open ? abiertos.add(id) : abiertos.delete(id)); }, true);
 // Delegación de eventos
 $app.addEventListener("click", async (ev) => {
   if (ev.target.id === "hoja") { ev.target.hidden = true; return; }

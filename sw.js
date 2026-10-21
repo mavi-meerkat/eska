@@ -1,5 +1,5 @@
 // Service worker de Mi Entreno: la app funciona sin conexión en el gimnasio.
-const VERSION = "v16";
+const VERSION = "v17";
 const CACHE = "gym-" + VERSION;
 const PRECACHE = ["./", "index.html", "manifest.webmanifest", "css/app.css", "css/fig.css",
   "js/app.js", "js/data.js", "js/store.js", "js/figuras.js", "icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png"];
